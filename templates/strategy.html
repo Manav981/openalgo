@@ -1,69 +1,129 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Strategy Selector</title>
-    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
-</head>
-<body>
-    <h1>Strategy Selector</h1>
-    <form id="strategyForm">
-        <label for="strategy">Select Strategy:</label>
-        <select id="strategy" name="strategy">
-            <option value="sma_crossover">SMA Crossover</option>
-            <!-- Add more strategies as options here -->
-        </select>
-        <br><br>
-        <button type="button" onclick="startStrategy()">Start Strategy</button>
-        <button type="button" onclick="stopStrategy()">Stop Strategy</button>
+{% extends "base.html" %}
+
+{% block head %}
+<title>Strategy Dashboard</title>
+<!-- Tailwind CSS is included in base.html -->
+{% endblock %}
+
+{% block content %}
+
+<div class="mb-8">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- Active Strategies -->
+        <div class="border border-blue-300 bg-white p-4 md:p-6 rounded-lg shadow-sm">
+            <h2 class="text-sm font-semibold text-blue-800">Active Strategies</h2>
+            <p class="text-lg font-bold text-blue-800">{{ strategy_stats.active_strategies }}</p>
+        </div>
+        <!-- Total Buy Signals -->
+        <div class="border border-green-300 bg-white p-4 md:p-6 rounded-lg shadow-sm">
+            <h2 class="text-sm font-semibold text-green-800">Total Buy Signals</h2>
+            <p class="text-lg font-bold text-green-800">{{ strategy_stats.total_buy_signals }}</p>
+        </div>
+        <!-- Total Sell Signals -->
+        <div class="border border-red-300 bg-white p-4 md:p-6 rounded-lg shadow-sm">
+            <h2 class="text-sm font-semibold text-red-800">Total Sell Signals</h2>
+            <p class="text-lg font-bold text-red-800">{{ strategy_stats.total_sell_signals }}</p>
+        </div>
+    </div>
+</div>
+
+<div class="overflow-x-auto relative shadow-md sm:rounded-lg">
+    <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+        <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+            <tr>
+                <th scope="col" class="py-3 px-6">Strategy Name</th>
+                <th scope="col" class="py-3 px-6">Buy Price</th>
+                <th scope="col" class="py-3 px-6">Sell Price</th>
+                <th scope="col" class="py-3 px-6">Profit</th>
+                <th scope="col" class="py-3 px-6">Status</th>
+                <th scope="col" class="py-3 px-6">Start Time</th>
+                <th scope="col" class="py-3 px-6">End Time</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for strategy in strategy_data %}
+            <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
+                <td class="py-4 px-6">{{ strategy.name }}</td>
+                <td class="py-4 px-6">{{ strategy.buy_price }}</td>
+                <td class="py-4 px-6">{{ strategy.sell_price }}</td>
+                <td class="py-4 px-6">{{ strategy.profit }}</td>
+                <td class="py-4 px-6 
+                    {% if strategy.status == 'active' %}text-blue-500
+                    {% elif strategy.status == 'completed' %}text-green-500
+                    {% elif strategy.status == 'stopped' %}text-red-500
+                    {% else %}text-gray-500{% endif %}">
+                    {{ strategy.status }}
+                </td>
+                <td class="py-4 px-6">{{ strategy.start_time }}</td>
+                <td class="py-4 px-6">{{ strategy.end_time }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="mt-8">
+    <h2 class="text-lg font-semibold mb-4">Control Strategy</h2>
+    <form id="strategyForm" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+            <label for="strategy" class="block text-sm font-medium text-gray-700">Select Strategy</label>
+            <select id="strategy" name="strategy" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
+                <option value="sma_crossover">SMA Crossover</option>
+                <!-- Add more strategies as options here -->
+            </select>
+        </div>
+        <div class="flex items-end">
+            <button type="button" onclick="startStrategy()" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">Start Strategy</button>
+        </div>
+        <div class="flex items-end">
+            <button type="button" onclick="stopStrategy()" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">Stop Strategy</button>
+        </div>
     </form>
+</div>
 
-    <div id="output"></div>
+<script>
+    const socket = io();
 
-    <script>
-        const socket = io();
+    socket.on('connect', () => {
+        console.log('Connected to server');
+    });
 
-        socket.on('connect', () => {
-            console.log('Connected to server');
+    socket.on('sma2_update', (data) => {
+        document.getElementById('output').innerHTML += `<p>SMA-2: ${data.sma2}</p>`;
+    });
+
+    socket.on('sma3_update', (data) => {
+        document.getElementById('output').innerHTML += `<p>SMA-3: ${data.sma3}</p>`;
+    });
+
+    socket.on('buy_signal', (data) => {
+        document.getElementById('output').innerHTML += `<p>Buy signal at price: ${data.price}</p>`;
+    });
+
+    socket.on('sell_signal', (data) => {
+        document.getElementById('output').innerHTML += `<p>Sell signal at price: ${data.price}. Profit: ${data.profit}</p>`;
+    });
+
+    async function startStrategy() {
+        const strategy = document.getElementById('strategy').value;
+        const response = await fetch('/start_strategy', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ strategy }),
         });
+        const result = await response.json();
+        alert(result.status);
+    }
 
-        socket.on('sma2_update', (data) => {
-            document.getElementById('output').innerHTML += `<p>SMA-2: ${data.sma2}</p>`;
+    async function stopStrategy() {
+        const response = await fetch('/stop_strategy', {
+            method: 'POST',
         });
+        const result = await response.json();
+        alert(result.status);
+    }
+</script>
 
-        socket.on('sma3_update', (data) => {
-            document.getElementById('output').innerHTML += `<p>SMA-3: ${data.sma3}</p>`;
-        });
-
-        socket.on('buy_signal', (data) => {
-            document.getElementById('output').innerHTML += `<p>Buy signal at price: ${data.price}</p>`;
-        });
-
-        socket.on('sell_signal', (data) => {
-            document.getElementById('output').innerHTML += `<p>Sell signal at price: ${data.price}. Profit: ${data.profit}</p>`;
-        });
-
-        async function startStrategy() {
-            const strategy = document.getElementById('strategy').value;
-            const response = await fetch('/start_strategy', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ strategy }),
-            });
-            const result = await response.json();
-            alert(result.status);
-        }
-
-        async function stopStrategy() {
-            const response = await fetch('/stop_strategy', {
-                method: 'POST',
-            });
-            const result = await response.json();
-            alert(result.status);
-        }
-    </script>
-</body>
-</html>
+{% endblock %}
